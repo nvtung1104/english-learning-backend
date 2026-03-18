@@ -5,66 +5,72 @@ namespace App\Http\Controllers\Api;
 use App\Models\Vocabulary;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\VocabularyResource;
 
 class VocabularyController extends Controller
 {
     public function index(Request $request)
     {
         $items = Vocabulary::when($request->lesson_id, fn($q) => $q->where('lesson_id', $request->lesson_id))
+            ->orderBy('id')
             ->get();
 
-        return response()->json($items);
+        return VocabularyResource::collection($items);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'lesson_id' => 'required|exists:lessons,id',
-            'word' => 'required|string|max:255',
-            'meaning' => 'required|string|max:255',
-            'example' => 'nullable|string',
-            'audio' => 'nullable|string|max:255',
+            'word'      => 'required|string|max:255',
+            'meaning'   => 'required|string|max:255',
+            'example'   => 'nullable|string',
+            'audio'     => 'nullable|string|max:255',
         ]);
 
         $item = Vocabulary::create($validated);
 
         return response()->json([
-            'message' => 'Tạo từ vựng thành công',
-            'data' => $item,
+            'success' => true,
+            'message' => 'Tạo từ vựng thành công.',
+            'data'    => new VocabularyResource($item),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(Vocabulary $vocabulary)
     {
-        return response()->json(Vocabulary::findOrFail($id));
+        return response()->json([
+            'success' => true,
+            'data'    => new VocabularyResource($vocabulary),
+        ]);
     }
 
-    public function update(Request $request, string $id)
+    public function update(Request $request, Vocabulary $vocabulary)
     {
-        $item = Vocabulary::findOrFail($id);
-
         $validated = $request->validate([
-            'lesson_id' => 'required|exists:lessons,id',
-            'word' => 'required|string|max:255',
-            'meaning' => 'required|string|max:255',
-            'example' => 'nullable|string',
-            'audio' => 'nullable|string|max:255',
+            'lesson_id' => 'sometimes|required|exists:lessons,id',
+            'word'      => 'sometimes|required|string|max:255',
+            'meaning'   => 'sometimes|required|string|max:255',
+            'example'   => 'nullable|string',
+            'audio'     => 'nullable|string|max:255',
         ]);
 
-        $item->update($validated);
+        $vocabulary->update($validated);
 
         return response()->json([
-            'message' => 'Cập nhật từ vựng thành công',
-            'data' => $item,
+            'success' => true,
+            'message' => 'Cập nhật từ vựng thành công.',
+            'data'    => new VocabularyResource($vocabulary),
         ]);
     }
 
-    public function destroy(string $id)
+    public function destroy(Vocabulary $vocabulary)
     {
-        Vocabulary::findOrFail($id)->delete();
+        $vocabulary->delete();
 
         return response()->json([
-            'message' => 'Xóa từ vựng thành công',
+            'success' => true,
+            'message' => 'Xóa từ vựng thành công.',
         ]);
     }
 }

@@ -4,12 +4,12 @@ namespace App\Models;
 
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, Notifiable;
 
     protected $fillable = [
         'name',
@@ -18,9 +18,6 @@ class User extends Authenticatable
         'avatar',
         'phone',
         'status',
-        'email_verified_at',
-        'last_login',
-        'remember_token',
     ];
 
     protected $hidden = [
@@ -28,53 +25,54 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'last_login' => 'datetime',
-            'password' => 'hashed',
-            'status' => 'integer',
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'last_login' => 'datetime',
+        'password' => 'hashed',
+    ];
 
-    public function roles()
+    public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id');
     }
 
-    public function coursesCreated()
+    public function hasRole(string $roleName): bool
     {
-        return $this->hasMany(Course::class, 'created_by');
+        return $this->roles()->where('name', $roleName)->exists();
+    }
+
+    public function hasAnyRole(array $roleNames): bool
+    {
+        return $this->roles()->whereIn('name', $roleNames)->exists();
     }
 
     public function enrollments()
     {
-        return $this->hasMany(CourseEnrollment::class);
+        return $this->hasMany(\App\Models\CourseEnrollment::class);
     }
 
     public function lessonProgress()
     {
-        return $this->hasMany(LessonProgress::class);
-    }
-
-    public function quizAttempts()
-    {
-        return $this->hasMany(QuizAttempt::class);
-    }
-
-    public function speakingAttempts()
-    {
-        return $this->hasMany(SpeakingAttempt::class);
+        return $this->hasMany(\App\Models\LessonProgress::class);
     }
 
     public function reviews()
     {
-        return $this->hasMany(Review::class);
+        return $this->hasMany(\App\Models\Review::class);
     }
 
     public function notifications()
     {
-        return $this->hasMany(Notification::class);
+        return $this->hasMany(\App\Models\Notification::class);
     }
-}
+
+    public function quizAttempts()
+    {
+        return $this->hasMany(\App\Models\QuizAttempt::class);
+    }
+
+    public function speakingAttempts()
+    {
+        return $this->hasMany(\App\Models\SpeakingAttempt::class);
+    }
+}   

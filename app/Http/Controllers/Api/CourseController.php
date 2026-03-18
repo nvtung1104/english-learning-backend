@@ -5,116 +5,106 @@ namespace App\Http\Controllers\Api;
 use App\Models\Course;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Str;
+use App\Http\Resources\CourseResource;
+use Illuminate\Support\Facades\Storage;
+use App\Http\Requests\Course\StoreCourseRequest;
+use App\Http\Requests\Course\UpdateCourseRequest;
 
 class CourseController extends Controller
 {
     public function index(Request $request)
     {
-        $courses = Course::with(['category', 'level', 'creator'])
-            ->when($request->keyword, function ($query) use ($request) {
-                $query->where('title', 'like', '%' . $request->keyword . '%');
-            })
-            ->when($request->category_id, function ($query) use ($request) {
-                $query->where('category_id', $request->category_id);
-            })
-            ->when($request->level_id, function ($query) use ($request) {
-                $query->where('level_id', $request->level_id);
-            })
-            ->latest()
-            ->paginate(10);
+        $query = Course::with(['category', 'level', 'creator']);
 
-        return response()->json($courses);
+        if ($request->filled('search')) {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->filled('level_id')) {
+            $query->where('level_id', $request->level_id);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $allowedSorts = ['id', 'title', 'price', 'created_at'];
+        $sortBy = in_array($request->get('sort_by'), $allowedSorts) ? $request->get('sort_by') : 'id';
+        $sortOrder = $request->get('sort_order') === 'asc' ? 'asc' : 'desc';
+
+        $items = $query->orderBy($sortBy, $sortOrder)->paginate(10);
+
+        return CourseResource::collection($items);
     }
 
-    public function store(Request $request)
+    public function store(StoreCourseRequest $request)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'category_id' => 'required|exists:course_categories,id',
-            'level_id' => 'required|exists:course_levels,id',
-            'price' => 'nullable|numeric|min:0',
-            'thumbnail' => 'nullable|string|max:255',
-            'duration' => 'nullable|integer|min:1',
-            'status' => 'nullable|integer|in:0,1',
-        ]);
+        $data = $request->validated();
 
-        $course = Course::create([
-            'title' => $validated['title'],
-            'slug' => Str::slug($validated['title']) . '-' . time(),
-            'description' => $validated['description'] ?? null,
-            'category_id' => $validated['category_id'],
-            'level_id' => $validated['level_id'],
-            'price' => $validated['price'] ?? 0,
-            'thumbnail' => $validated['thumbnail'] ?? null,
-            'duration' => $validated['duration'] ?? null,
-            'status' => $validated['status'] ?? 1,
-            'created_by' => $request->user()->id,
-        ]);
+        if ($request->hasFile('thumbnail')) {
+            $data['thumbnail'] = $request->file('thumbnail')->store('courses', 'public');
+        }
 
+        $data['created_by'] = auth()->id();
+
+        $course = Course::create($data);
         $course->load(['category', 'level', 'creator']);
 
         return response()->json([
-            'message' => 'Tạo khóa học thành công',
-            'data' => $course,
+            'success' => true,
+            'message' => 'Tạo khóa học thành công.',
+            'data' => new CourseResource($course),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(Course $course)
     {
-        $course = Course::with([
-            'category',
-            'level',
-            'creator',
-            'sections.lessons',
-            'reviews.user',
-        ])->findOrFail($id);
+        $course->load(['category', 'level', 'creator', 'sections.lessons']);
 
-        return response()->json($course);
+        return response()->json([
+            'success' => true,
+            'message' => 'Lấy chi tiết khóa học thành công.',
+            'data' => new CourseResource($course),
+        ]);
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateCourseRequest $request, Course $course)
     {
-        $course = Course::findOrFail($id);
+        $data = $request->validated();
 
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'category_id' => 'required|exists:course_categories,id',
-            'level_id' => 'required|exists:course_levels,id',
-            'price' => 'nullable|numeric|min:0',
-            'thumbnail' => 'nullable|string|max:255',
-            'duration' => 'nullable|integer|min:1',
-            'status' => 'nullable|integer|in:0,1',
-        ]);
+        if ($request->hasFile('thumbnail')) {
+            if ($course->thumbnail && Storage::disk('public')->exists($course->thumbnail)) {
+                Storage::disk('public')->delete($course->thumbnail);
+            }
 
-        $course->update([
-            'title' => $validated['title'],
-            'description' => $validated['description'] ?? null,
-            'category_id' => $validated['category_id'],
-            'level_id' => $validated['level_id'],
-            'price' => $validated['price'] ?? 0,
-            'thumbnail' => $validated['thumbnail'] ?? null,
-            'duration' => $validated['duration'] ?? null,
-            'status' => $validated['status'] ?? 1,
-        ]);
+            $data['thumbnail'] = $request->file('thumbnail')->store('courses', 'public');
+        }
 
+        $course->update($data);
         $course->load(['category', 'level', 'creator']);
 
         return response()->json([
-            'message' => 'Cập nhật khóa học thành công',
-            'data' => $course,
+            'success' => true,
+            'message' => 'Cập nhật khóa học thành công.',
+            'data' => new CourseResource($course),
         ]);
     }
 
-    public function destroy(string $id)
+    public function destroy(Course $course)
     {
-        $course = Course::findOrFail($id);
+        if ($course->thumbnail && Storage::disk('public')->exists($course->thumbnail)) {
+            Storage::disk('public')->delete($course->thumbnail);
+        }
+
         $course->delete();
 
         return response()->json([
-            'message' => 'Xóa khóa học thành công',
+            'success' => true,
+            'message' => 'Xóa khóa học thành công.',
         ]);
     }
 }

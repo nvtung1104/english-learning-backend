@@ -5,71 +5,67 @@ namespace App\Http\Controllers\Api;
 use App\Models\CourseSection;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CourseSectionResource;
+use App\Http\Requests\CourseSection\StoreCourseSectionRequest;
+use App\Http\Requests\CourseSection\UpdateCourseSectionRequest;
 
 class CourseSectionController extends Controller
 {
     public function index(Request $request)
     {
-        $sections = CourseSection::with('lessons')
-            ->when($request->course_id, fn($q) => $q->where('course_id', $request->course_id))
-            ->orderBy('order_number')
-            ->get();
+        $query = CourseSection::with('lessons');
 
-        return response()->json($sections);
+        if ($request->filled('course_id')) {
+            $query->where('course_id', $request->course_id);
+        }
+
+        $items = $query->orderBy('order_number')->paginate(10);
+
+        return CourseSectionResource::collection($items);
     }
 
-    public function store(Request $request)
+    public function store(StoreCourseSectionRequest $request)
     {
-        $validated = $request->validate([
-            'course_id' => 'required|exists:courses,id',
-            'title' => 'required|string|max:255',
-            'order_number' => 'nullable|integer|min:1',
-        ]);
-
-        $section = CourseSection::create([
-            'course_id' => $validated['course_id'],
-            'title' => $validated['title'],
-            'order_number' => $validated['order_number'] ?? 1,
-        ]);
+        $item = CourseSection::create($request->validated());
+        $item->load('lessons');
 
         return response()->json([
-            'message' => 'Tạo section thành công',
-            'data' => $section,
+            'success' => true,
+            'message' => 'Tạo phần học thành công.',
+            'data' => new CourseSectionResource($item),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(CourseSection $courseSection)
     {
-        return response()->json(
-            CourseSection::with('lessons')->findOrFail($id)
-        );
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $section = CourseSection::findOrFail($id);
-
-        $validated = $request->validate([
-            'course_id' => 'required|exists:courses,id',
-            'title' => 'required|string|max:255',
-            'order_number' => 'nullable|integer|min:1',
-        ]);
-
-        $section->update($validated);
+        $courseSection->load('lessons');
 
         return response()->json([
-            'message' => 'Cập nhật section thành công',
-            'data' => $section,
+            'success' => true,
+            'message' => 'Lấy chi tiết phần học thành công.',
+            'data' => new CourseSectionResource($courseSection),
         ]);
     }
 
-    public function destroy(string $id)
+    public function update(UpdateCourseSectionRequest $request, CourseSection $courseSection)
     {
-        $section = CourseSection::findOrFail($id);
-        $section->delete();
+        $courseSection->update($request->validated());
+        $courseSection->load('lessons');
 
         return response()->json([
-            'message' => 'Xóa section thành công',
+            'success' => true,
+            'message' => 'Cập nhật phần học thành công.',
+            'data' => new CourseSectionResource($courseSection),
+        ]);
+    }
+
+    public function destroy(CourseSection $courseSection)
+    {
+        $courseSection->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xóa phần học thành công.',
         ]);
     }
 }

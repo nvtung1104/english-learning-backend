@@ -5,56 +5,63 @@ namespace App\Http\Controllers\Api;
 use App\Models\LessonType;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\LessonTypeResource;
+use App\Http\Requests\LessonType\StoreLessonTypeRequest;
+use App\Http\Requests\LessonType\UpdateLessonTypeRequest;
 
 class LessonTypeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(LessonType::latest()->get());
+        $query = LessonType::query();
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $items = $query->orderBy('id', 'desc')->paginate(10);
+
+        return LessonTypeResource::collection($items);
     }
 
-    public function store(Request $request)
+    public function store(StoreLessonTypeRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:lesson_types,name',
-        ]);
-
-        $type = LessonType::create($validated);
+        $item = LessonType::create($request->validated());
 
         return response()->json([
-            'message' => 'Tạo loại bài học thành công',
-            'data' => $type,
+            'success' => true,
+            'message' => 'Tạo loại bài học thành công.',
+            'data' => new LessonTypeResource($item),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(LessonType $lessonType)
     {
-        return response()->json(LessonType::findOrFail($id));
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $type = LessonType::findOrFail($id);
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:lesson_types,name,' . $type->id,
-        ]);
-
-        $type->update($validated);
-
         return response()->json([
-            'message' => 'Cập nhật loại bài học thành công',
-            'data' => $type,
+            'success' => true,
+            'message' => 'Lấy chi tiết loại bài học thành công.',
+            'data' => new LessonTypeResource($lessonType),
         ]);
     }
 
-    public function destroy(string $id)
+    public function update(UpdateLessonTypeRequest $request, LessonType $lessonType)
     {
-        $type = LessonType::findOrFail($id);
-        $type->delete();
+        $lessonType->update($request->validated());
 
         return response()->json([
-            'message' => 'Xóa loại bài học thành công',
+            'success' => true,
+            'message' => 'Cập nhật loại bài học thành công.',
+            'data' => new LessonTypeResource($lessonType),
+        ]);
+    }
+
+    public function destroy(LessonType $lessonType)
+    {
+        $lessonType->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xóa loại bài học thành công.',
         ]);
     }
 }

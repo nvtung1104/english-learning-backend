@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\CourseEnrollment;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CourseEnrollmentResource;
 
 class CourseEnrollmentController extends Controller
 {
@@ -15,34 +16,32 @@ class CourseEnrollmentController extends Controller
             ->latest()
             ->get();
 
-        return response()->json($items);
+        return CourseEnrollmentResource::collection($items);
     }
 
-    public function enroll(Request $request)
+    public function enroll(Request $request, \App\Models\Course $course)
     {
-        $validated = $request->validate([
-            'course_id' => 'required|exists:courses,id',
-        ]);
-
         $exists = CourseEnrollment::where('user_id', $request->user()->id)
-            ->where('course_id', $validated['course_id'])
+            ->where('course_id', $course->id)
             ->exists();
 
         if ($exists) {
             return response()->json([
-                'message' => 'Bạn đã đăng ký khóa học này rồi',
+                'success' => false,
+                'message' => 'Bạn đã đăng ký khóa học này rồi.',
             ], 422);
         }
 
         $item = CourseEnrollment::create([
-            'user_id' => $request->user()->id,
-            'course_id' => $validated['course_id'],
+            'user_id'     => $request->user()->id,
+            'course_id'   => $course->id,
             'enrolled_at' => now(),
         ]);
 
         return response()->json([
-            'message' => 'Đăng ký khóa học thành công',
-            'data' => $item->load('course'),
+            'success' => true,
+            'message' => 'Đăng ký khóa học thành công.',
+            'data'    => new CourseEnrollmentResource($item->load('course')),
         ], 201);
     }
 }

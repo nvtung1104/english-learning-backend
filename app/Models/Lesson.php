@@ -3,11 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Lesson extends Model
 {
-    use HasFactory;
+    protected $table = 'lessons';
 
     protected $fillable = [
         'section_id',
@@ -17,15 +16,6 @@ class Lesson extends Model
         'video_url',
         'order_number',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'section_id' => 'integer',
-            'lesson_type_id' => 'integer',
-            'order_number' => 'integer',
-        ];
-    }
 
     public function section()
     {
@@ -62,13 +52,8 @@ class Lesson extends Model
         return $this->hasMany(Quiz::class);
     }
 
-    public function progresses()
+    public function progress()
     {
         return $this->hasMany(LessonProgress::class);
-    }
-
-    public function speakingAttempts()
-    {
-        return $this->hasMany(SpeakingAttempt::class);
     }
 }

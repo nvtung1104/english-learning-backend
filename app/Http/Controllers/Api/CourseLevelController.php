@@ -5,56 +5,63 @@ namespace App\Http\Controllers\Api;
 use App\Models\CourseLevel;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CourseLevelResource;
+use App\Http\Requests\CourseLevel\StoreCourseLevelRequest;
+use App\Http\Requests\CourseLevel\UpdateCourseLevelRequest;
 
 class CourseLevelController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(CourseLevel::latest()->get());
+        $query = CourseLevel::query();
+
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $items = $query->orderBy('id', 'desc')->paginate(10);
+
+        return CourseLevelResource::collection($items);
     }
 
-    public function store(Request $request)
+    public function store(StoreCourseLevelRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:course_levels,name',
-        ]);
-
-        $level = CourseLevel::create($validated);
+        $item = CourseLevel::create($request->validated());
 
         return response()->json([
-            'message' => 'Tạo cấp độ thành công',
-            'data' => $level,
+            'success' => true,
+            'message' => 'Tạo cấp độ khóa học thành công.',
+            'data' => new CourseLevelResource($item),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(CourseLevel $courseLevel)
     {
-        return response()->json(CourseLevel::findOrFail($id));
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $level = CourseLevel::findOrFail($id);
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:100|unique:course_levels,name,' . $level->id,
-        ]);
-
-        $level->update($validated);
-
         return response()->json([
-            'message' => 'Cập nhật cấp độ thành công',
-            'data' => $level,
+            'success' => true,
+            'message' => 'Lấy chi tiết cấp độ khóa học thành công.',
+            'data' => new CourseLevelResource($courseLevel),
         ]);
     }
 
-    public function destroy(string $id)
+    public function update(UpdateCourseLevelRequest $request, CourseLevel $courseLevel)
     {
-        $level = CourseLevel::findOrFail($id);
-        $level->delete();
+        $courseLevel->update($request->validated());
 
         return response()->json([
-            'message' => 'Xóa cấp độ thành công',
+            'success' => true,
+            'message' => 'Cập nhật cấp độ khóa học thành công.',
+            'data' => new CourseLevelResource($courseLevel),
+        ]);
+    }
+
+    public function destroy(CourseLevel $courseLevel)
+    {
+        $courseLevel->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xóa cấp độ khóa học thành công.',
         ]);
     }
 }

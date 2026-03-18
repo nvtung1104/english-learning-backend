@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\Review;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ReviewResource;
 
 class ReviewController extends Controller
 {
@@ -13,17 +14,17 @@ class ReviewController extends Controller
         $items = Review::with('user')
             ->when($request->course_id, fn($q) => $q->where('course_id', $request->course_id))
             ->latest()
-            ->get();
+            ->paginate(15);
 
-        return response()->json($items);
+        return ReviewResource::collection($items);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
             'course_id' => 'required|exists:courses,id',
-            'rating' => 'required|integer|min:1|max:5',
-            'comment' => 'nullable|string',
+            'rating'    => 'required|integer|min:1|max:5',
+            'comment'   => 'nullable|string',
         ]);
 
         $exists = Review::where('user_id', $request->user()->id)
@@ -32,64 +33,64 @@ class ReviewController extends Controller
 
         if ($exists) {
             return response()->json([
-                'message' => 'Bạn đã đánh giá khóa học này rồi',
+                'success' => false,
+                'message' => 'Bạn đã đánh giá khóa học này rồi.',
             ], 422);
         }
 
         $item = Review::create([
-            'user_id' => $request->user()->id,
+            'user_id'   => $request->user()->id,
             'course_id' => $validated['course_id'],
-            'rating' => $validated['rating'],
-            'comment' => $validated['comment'] ?? null,
+            'rating'    => $validated['rating'],
+            'comment'   => $validated['comment'] ?? null,
         ]);
 
         return response()->json([
-            'message' => 'Đánh giá khóa học thành công',
-            'data' => $item->load('user'),
+            'success' => true,
+            'message' => 'Đánh giá khóa học thành công.',
+            'data'    => new ReviewResource($item->load('user')),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(Review $review)
     {
-        return response()->json(
-            Review::with('user')->findOrFail($id)
-        );
+        return response()->json([
+            'success' => true,
+            'data'    => new ReviewResource($review->load('user')),
+        ]);
     }
 
-    public function update(Request $request, string $id)
+    public function update(Request $request, Review $review)
     {
-        $item = Review::findOrFail($id);
-
-        if ($item->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Không có quyền sửa đánh giá này'], 403);
+        if ($review->user_id !== $request->user()->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền sửa đánh giá này.'], 403);
         }
 
         $validated = $request->validate([
-            'course_id' => 'required|exists:courses,id',
-            'rating' => 'required|integer|min:1|max:5',
+            'rating'  => 'sometimes|required|integer|min:1|max:5',
             'comment' => 'nullable|string',
         ]);
 
-        $item->update($validated);
+        $review->update($validated);
 
         return response()->json([
-            'message' => 'Cập nhật đánh giá thành công',
-            'data' => $item->load('user'),
+            'success' => true,
+            'message' => 'Cập nhật đánh giá thành công.',
+            'data'    => new ReviewResource($review->load('user')),
         ]);
     }
 
-    public function destroy(Request $request, string $id)
+    public function destroy(Request $request, Review $review)
     {
-        $item = Review::findOrFail($id);
-
-        if ($item->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Không có quyền xóa đánh giá này'], 403);
+        if ($review->user_id !== $request->user()->id) {
+            return response()->json(['success' => false, 'message' => 'Không có quyền xóa đánh giá này.'], 403);
         }
 
-        $item->delete();
+        $review->delete();
 
         return response()->json([
-            'message' => 'Xóa đánh giá thành công',
+            'success' => true,
+            'message' => 'Xóa đánh giá thành công.',
         ]);
     }
 }

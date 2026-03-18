@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Http\Requests\LoginRequest;
@@ -15,19 +17,26 @@ class AuthController extends Controller
     public function register(RegisterRequest $request)
     {
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
+            'name'   => $request->name,
+            'email'  => $request->email,
             'password' => $request->password,
-            'phone' => $request->phone,
+            'phone'  => $request->phone,
             'status' => 1,
         ]);
+
+        $studentRole = Role::where('name', $request->role ?? 'student')->first()
+            ?? Role::where('name', 'student')->first();
+        if ($studentRole) {
+            $user->roles()->syncWithoutDetaching([$studentRole->id]);
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Đăng ký thành công',
-            'user' => $user,
-            'token' => $token,
+            'success'    => true,
+            'message'    => 'Đăng ký thành công.',
+            'user'       => new UserResource($user->load('roles')),
+            'token'      => $token,
             'token_type' => 'Bearer',
         ], 201);
     }
@@ -44,20 +53,20 @@ class AuthController extends Controller
 
         if ((int) $user->status !== 1) {
             return response()->json([
+                'success' => false,
                 'message' => 'Tài khoản đã bị khóa.',
             ], 403);
         }
 
-        $user->update([
-            'last_login' => now(),
-        ]);
+        $user->update(['last_login' => now()]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Đăng nhập thành công',
-            'user' => $user,
-            'token' => $token,
+            'success'    => true,
+            'message'    => 'Đăng nhập thành công.',
+            'user'       => new UserResource($user->load('roles')),
+            'token'      => $token,
             'token_type' => 'Bearer',
         ]);
     }
@@ -65,7 +74,8 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return response()->json([
-            'user' => $request->user()->load('roles'),
+            'success' => true,
+            'data'    => new UserResource($request->user()->load('roles')),
         ]);
     }
 
@@ -74,7 +84,8 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
-            'message' => 'Đăng xuất thành công',
+            'success' => true,
+            'message' => 'Đăng xuất thành công.',
         ]);
     }
 
@@ -83,7 +94,8 @@ class AuthController extends Controller
         $request->user()->tokens()->delete();
 
         return response()->json([
-            'message' => 'Đăng xuất tất cả thiết bị thành công',
+            'success' => true,
+            'message' => 'Đăng xuất tất cả thiết bị thành công.',
         ]);
     }
 }

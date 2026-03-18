@@ -5,62 +5,63 @@ namespace App\Http\Controllers\Api;
 use App\Models\CourseCategory;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CourseCategoryResource;
+use App\Http\Requests\CourseCategory\StoreCourseCategoryRequest;
+use App\Http\Requests\CourseCategory\UpdateCourseCategoryRequest;
 
 class CourseCategoryController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $categories = CourseCategory::latest()->get();
+        $query = CourseCategory::query();
 
-        return response()->json($categories);
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        $items = $query->orderBy('id', 'desc')->paginate(10);
+
+        return CourseCategoryResource::collection($items);
     }
 
-    public function store(Request $request)
+    public function store(StoreCourseCategoryRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:course_categories,name',
-            'description' => 'nullable|string',
-        ]);
-
-        $category = CourseCategory::create($validated);
+        $item = CourseCategory::create($request->validated());
 
         return response()->json([
-            'message' => 'Tạo danh mục thành công',
-            'data' => $category,
+            'success' => true,
+            'message' => 'Tạo danh mục khóa học thành công.',
+            'data' => new CourseCategoryResource($item),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(CourseCategory $courseCategory)
     {
-        $category = CourseCategory::findOrFail($id);
-
-        return response()->json($category);
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $category = CourseCategory::findOrFail($id);
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:course_categories,name,' . $category->id,
-            'description' => 'nullable|string',
-        ]);
-
-        $category->update($validated);
-
         return response()->json([
-            'message' => 'Cập nhật danh mục thành công',
-            'data' => $category,
+            'success' => true,
+            'message' => 'Lấy chi tiết danh mục khóa học thành công.',
+            'data' => new CourseCategoryResource($courseCategory),
         ]);
     }
 
-    public function destroy(string $id)
+    public function update(UpdateCourseCategoryRequest $request, CourseCategory $courseCategory)
     {
-        $category = CourseCategory::findOrFail($id);
-        $category->delete();
+        $courseCategory->update($request->validated());
 
         return response()->json([
-            'message' => 'Xóa danh mục thành công',
+            'success' => true,
+            'message' => 'Cập nhật danh mục khóa học thành công.',
+            'data' => new CourseCategoryResource($courseCategory),
+        ]);
+    }
+
+    public function destroy(CourseCategory $courseCategory)
+    {
+        $courseCategory->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xóa danh mục khóa học thành công.',
         ]);
     }
 }

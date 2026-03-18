@@ -5,88 +5,70 @@ namespace App\Http\Controllers\Api;
 use App\Models\Lesson;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\LessonResource;
+use App\Http\Requests\Lesson\StoreLessonRequest;
+use App\Http\Requests\Lesson\UpdateLessonRequest;
 
 class LessonController extends Controller
 {
     public function index(Request $request)
     {
-        $lessons = Lesson::with(['section', 'lessonType'])
-            ->when($request->section_id, fn($q) => $q->where('section_id', $request->section_id))
-            ->orderBy('order_number')
-            ->get();
+        $query = Lesson::query();
 
-        return response()->json($lessons);
+        if ($request->filled('section_id')) {
+            $query->where('section_id', $request->section_id);
+        }
+
+        if ($request->filled('lesson_type_id')) {
+            $query->where('lesson_type_id', $request->lesson_type_id);
+        }
+
+        $items = $query->orderBy('order_number')->paginate(10);
+
+        return LessonResource::collection($items);
     }
 
-    public function store(Request $request)
+    public function store(StoreLessonRequest $request)
     {
-        $validated = $request->validate([
-            'section_id' => 'required|exists:course_sections,id',
-            'title' => 'required|string|max:255',
-            'content' => 'nullable|string',
-            'lesson_type_id' => 'nullable|exists:lesson_types,id',
-            'video_url' => 'nullable|string|max:255',
-            'order_number' => 'nullable|integer|min:1',
-        ]);
+        $data = $request->validated();
+        $data['created_at'] = now();
 
-        $lesson = Lesson::create([
-            'section_id' => $validated['section_id'],
-            'title' => $validated['title'],
-            'content' => $validated['content'] ?? null,
-            'lesson_type_id' => $validated['lesson_type_id'] ?? null,
-            'video_url' => $validated['video_url'] ?? null,
-            'order_number' => $validated['order_number'] ?? 1,
-        ]);
+        $item = Lesson::create($data);
 
         return response()->json([
-            'message' => 'Tạo bài học thành công',
-            'data' => $lesson->load(['section', 'lessonType']),
+            'success' => true,
+            'message' => 'Tạo bài học thành công.',
+            'data' => new LessonResource($item),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(Lesson $lesson)
     {
-        return response()->json(
-            Lesson::with([
-                'section.course',
-                'lessonType',
-                'materials',
-                'vocabularies',
-                'grammarTopics',
-                'listeningLesson',
-                'quizzes.questions.answers'
-            ])->findOrFail($id)
-        );
+        return response()->json([
+            'success' => true,
+            'message' => 'Lấy chi tiết bài học thành công.',
+            'data' => new LessonResource($lesson),
+        ]);
     }
 
-    public function update(Request $request, string $id)
+    public function update(UpdateLessonRequest $request, Lesson $lesson)
     {
-        $lesson = Lesson::findOrFail($id);
-
-        $validated = $request->validate([
-            'section_id' => 'required|exists:course_sections,id',
-            'title' => 'required|string|max:255',
-            'content' => 'nullable|string',
-            'lesson_type_id' => 'nullable|exists:lesson_types,id',
-            'video_url' => 'nullable|string|max:255',
-            'order_number' => 'nullable|integer|min:1',
-        ]);
-
-        $lesson->update($validated);
+        $lesson->update($request->validated());
 
         return response()->json([
-            'message' => 'Cập nhật bài học thành công',
-            'data' => $lesson->load(['section', 'lessonType']),
+            'success' => true,
+            'message' => 'Cập nhật bài học thành công.',
+            'data' => new LessonResource($lesson),
         ]);
     }
 
-    public function destroy(string $id)
+    public function destroy(Lesson $lesson)
     {
-        $lesson = Lesson::findOrFail($id);
         $lesson->delete();
 
         return response()->json([
-            'message' => 'Xóa bài học thành công',
+            'success' => true,
+            'message' => 'Xóa bài học thành công.',
         ]);
     }
 }

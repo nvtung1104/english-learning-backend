@@ -6,6 +6,7 @@ use App\Models\Lesson;
 use App\Models\LessonProgress;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\LessonProgressResource;
 
 class LessonProgressController extends Controller
 {
@@ -15,29 +16,26 @@ class LessonProgressController extends Controller
             ->where('user_id', $request->user()->id)
             ->get();
 
-        return response()->json($items);
+        return LessonProgressResource::collection($items);
     }
 
-    public function complete(Request $request)
+    public function complete(Request $request, \App\Models\Lesson $lesson)
     {
-        $validated = $request->validate([
-            'lesson_id' => 'required|exists:lessons,id',
-        ]);
-
         $progress = LessonProgress::updateOrCreate(
             [
-                'user_id' => $request->user()->id,
-                'lesson_id' => $validated['lesson_id'],
+                'user_id'   => $request->user()->id,
+                'lesson_id' => $lesson->id,
             ],
             [
-                'status' => 1,
+                'status'       => 1,
                 'completed_at' => now(),
             ]
         );
 
         return response()->json([
-            'message' => 'Đánh dấu hoàn thành bài học thành công',
-            'data' => $progress,
+            'success' => true,
+            'message' => 'Đánh dấu hoàn thành bài học thành công.',
+            'data'    => new LessonProgressResource($progress),
         ]);
     }
 
@@ -57,10 +55,11 @@ class LessonProgressController extends Controller
         $percent = $total > 0 ? round(($completed / $total) * 100, 2) : 0;
 
         return response()->json([
-            'course_id' => (int) $courseId,
-            'total_lessons' => $total,
+            'success'           => true,
+            'course_id'         => (int) $courseId,
+            'total_lessons'     => $total,
             'completed_lessons' => $completed,
-            'progress_percent' => $percent,
+            'progress_percent'  => $percent,
         ]);
     }
 }

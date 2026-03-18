@@ -5,72 +5,65 @@ namespace App\Http\Controllers\Api;
 use App\Models\Quiz;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\QuizResource;
+use App\Http\Requests\Quiz\StoreQuizRequest;
+use App\Http\Requests\Quiz\UpdateQuizRequest;
 
 class QuizController extends Controller
 {
     public function index(Request $request)
     {
-        $items = Quiz::with('lesson')
-            ->when($request->lesson_id, fn($q) => $q->where('lesson_id', $request->lesson_id))
-            ->get();
+        $query = Quiz::query();
 
-        return response()->json($items);
+        if ($request->filled('lesson_id')) {
+            $query->where('lesson_id', $request->lesson_id);
+        }
+
+        $items = $query->orderBy('id', 'desc')->paginate(10);
+
+        return QuizResource::collection($items);
     }
 
-    public function store(Request $request)
+    public function store(StoreQuizRequest $request)
     {
-        $validated = $request->validate([
-            'lesson_id' => 'required|exists:lessons,id',
-            'title' => 'required|string|max:255',
-            'time_limit' => 'nullable|integer|min:1',
-            'pass_score' => 'nullable|integer|min:0|max:100',
-        ]);
-
-        $quiz = Quiz::create([
-            'lesson_id' => $validated['lesson_id'],
-            'title' => $validated['title'],
-            'time_limit' => $validated['time_limit'] ?? null,
-            'pass_score' => $validated['pass_score'] ?? 50,
-        ]);
+        $item = Quiz::create($request->validated());
 
         return response()->json([
-            'message' => 'Tạo quiz thành công',
-            'data' => $quiz,
+            'success' => true,
+            'message' => 'Tạo quiz thành công.',
+            'data' => new QuizResource($item),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(Quiz $quiz)
     {
-        return response()->json(
-            Quiz::with('questions.answers')->findOrFail($id)
-        );
-    }
-
-    public function update(Request $request, string $id)
-    {
-        $quiz = Quiz::findOrFail($id);
-
-        $validated = $request->validate([
-            'lesson_id' => 'required|exists:lessons,id',
-            'title' => 'required|string|max:255',
-            'time_limit' => 'nullable|integer|min:1',
-            'pass_score' => 'nullable|integer|min:0|max:100',
-        ]);
-
-        $quiz->update($validated);
+        $quiz->load('questions.answers');
 
         return response()->json([
-            'message' => 'Cập nhật quiz thành công',
-            'data' => $quiz,
+            'success' => true,
+            'message' => 'Lấy chi tiết quiz thành công.',
+            'data' => new QuizResource($quiz),
         ]);
     }
 
-    public function destroy(string $id)
+    public function update(UpdateQuizRequest $request, Quiz $quiz)
     {
-        Quiz::findOrFail($id)->delete();
+        $quiz->update($request->validated());
 
         return response()->json([
-            'message' => 'Xóa quiz thành công',
+            'success' => true,
+            'message' => 'Cập nhật quiz thành công.',
+            'data' => new QuizResource($quiz),
+        ]);
+    }
+
+    public function destroy(Quiz $quiz)
+    {
+        $quiz->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xóa quiz thành công.',
         ]);
     }
 }

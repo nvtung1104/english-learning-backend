@@ -5,62 +5,68 @@ namespace App\Http\Controllers\Api;
 use App\Models\ListeningLesson;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ListeningLessonResource;
 
 class ListeningLessonController extends Controller
 {
     public function index(Request $request)
     {
         $items = ListeningLesson::when($request->lesson_id, fn($q) => $q->where('lesson_id', $request->lesson_id))
+            ->orderBy('id')
             ->get();
 
-        return response()->json($items);
+        return ListeningLessonResource::collection($items);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'lesson_id' => 'required|exists:lessons,id|unique:listening_lessons,lesson_id',
-            'audio_url' => 'nullable|string|max:255',
+            'lesson_id'  => 'required|exists:lessons,id|unique:listening_lessons,lesson_id',
+            'audio_url'  => 'nullable|string|max:255',
             'transcript' => 'nullable|string',
         ]);
 
         $item = ListeningLesson::create($validated);
 
         return response()->json([
-            'message' => 'Tạo bài nghe thành công',
-            'data' => $item,
+            'success' => true,
+            'message' => 'Tạo bài nghe thành công.',
+            'data'    => new ListeningLessonResource($item),
         ], 201);
     }
 
-    public function show(string $id)
+    public function show(ListeningLesson $listeningLesson)
     {
-        return response()->json(ListeningLesson::findOrFail($id));
+        return response()->json([
+            'success' => true,
+            'data'    => new ListeningLessonResource($listeningLesson),
+        ]);
     }
 
-    public function update(Request $request, string $id)
+    public function update(Request $request, ListeningLesson $listeningLesson)
     {
-        $item = ListeningLesson::findOrFail($id);
-
         $validated = $request->validate([
-            'lesson_id' => 'required|exists:lessons,id|unique:listening_lessons,lesson_id,' . $item->id,
-            'audio_url' => 'nullable|string|max:255',
+            'lesson_id'  => 'sometimes|required|exists:lessons,id|unique:listening_lessons,lesson_id,' . $listeningLesson->id,
+            'audio_url'  => 'nullable|string|max:255',
             'transcript' => 'nullable|string',
         ]);
 
-        $item->update($validated);
+        $listeningLesson->update($validated);
 
         return response()->json([
-            'message' => 'Cập nhật bài nghe thành công',
-            'data' => $item,
+            'success' => true,
+            'message' => 'Cập nhật bài nghe thành công.',
+            'data'    => new ListeningLessonResource($listeningLesson),
         ]);
     }
 
-    public function destroy(string $id)
+    public function destroy(ListeningLesson $listeningLesson)
     {
-        ListeningLesson::findOrFail($id)->delete();
+        $listeningLesson->delete();
 
         return response()->json([
-            'message' => 'Xóa bài nghe thành công',
+            'success' => true,
+            'message' => 'Xóa bài nghe thành công.',
         ]);
     }
 }
