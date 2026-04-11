@@ -13,13 +13,24 @@ class QuizController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Quiz::query();
+        $query = Quiz::withCount(['questions' => fn($q) => $q->whereNull('parent_id')]);
 
         if ($request->filled('lesson_id')) {
             $query->where('lesson_id', $request->lesson_id);
         }
 
-        $items = $query->orderBy('id', 'desc')->paginate(10);
+        if ($request->filled('search')) {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        $sortField = match($request->input('sort_by', 'id')) {
+            'title' => 'title',
+            'time'  => 'time_limit',
+            default => 'id',
+        };
+        $sortOrder = $request->input('sort_order', 'desc') === 'asc' ? 'asc' : 'desc';
+
+        $items = $query->orderBy($sortField, $sortOrder)->paginate(10);
 
         return QuizResource::collection($items);
     }
@@ -37,12 +48,17 @@ class QuizController extends Controller
 
     public function show(Quiz $quiz)
     {
-        $quiz->load('questions.answers');
+        $quiz->load([
+            'questions' => fn($q) => $q->whereNull('parent_id'),
+            'questions.answers',
+            'questions.subQuestions',
+            'questions.subQuestions.answers',
+        ]);
 
         return response()->json([
             'success' => true,
             'message' => 'Lấy chi tiết quiz thành công.',
-            'data' => new QuizResource($quiz),
+            'data'    => new QuizResource($quiz),
         ]);
     }
 

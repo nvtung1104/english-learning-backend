@@ -19,6 +19,12 @@ class LessonTypeController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
+        if ($request->boolean('all')) {
+            return LessonTypeResource::collection(
+                $query->orderByRaw("CASE WHEN category IS NOT NULL THEN 0 ELSE 1 END")->orderBy('id')->get()
+            );
+        }
+
         $items = $query->orderBy('id', 'desc')->paginate(10);
 
         return LessonTypeResource::collection($items);

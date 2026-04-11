@@ -21,6 +21,20 @@ class QuizAttemptController extends Controller
         return QuizAttemptResource::collection($items);
     }
 
+    public function teacherIndex(Request $request)
+    {
+        $quizIds = \App\Models\Quiz::whereHas('lesson', function ($q) use ($request) {
+            $q->whereHas('section', fn($s) => $s->whereHas('course', fn($c) => $c->where('created_by', $request->user()->id)));
+        })->pluck('id');
+
+        $items = QuizAttempt::with(['user', 'quiz'])
+            ->whereIn('quiz_id', $quizIds)
+            ->latest()
+            ->paginate(50);
+
+        return QuizAttemptResource::collection($items);
+    }
+
     public function submit(Request $request, Quiz $quiz)
     {
         $quiz->load('questions.answers');

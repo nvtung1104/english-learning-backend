@@ -15,6 +15,7 @@ class Lesson extends Model
         'lesson_type_id',
         'video_url',
         'order_number',
+        'duration',
     ];
 
     public function section()

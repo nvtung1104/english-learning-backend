@@ -19,6 +19,18 @@ class CourseEnrollmentController extends Controller
         return CourseEnrollmentResource::collection($items);
     }
 
+    public function teacherIndex(Request $request)
+    {
+        $courseIds = \App\Models\Course::where('created_by', $request->user()->id)->pluck('id');
+
+        $items = CourseEnrollment::with(['user', 'course'])
+            ->whereIn('course_id', $courseIds)
+            ->latest()
+            ->get();
+
+        return CourseEnrollmentResource::collection($items);
+    }
+
     public function enroll(Request $request, \App\Models\Course $course)
     {
         $exists = CourseEnrollment::where('user_id', $request->user()->id)

@@ -27,7 +27,11 @@ use App\Http\Controllers\Api\RolePermissionController;
 use App\Http\Controllers\Api\SpeakingAttemptController;
 use App\Http\Controllers\Api\CourseEnrollmentController;
 use App\Http\Controllers\Api\LessonProgressController;
+use App\Http\Controllers\Api\ForgotPasswordController;
+use App\Http\Controllers\Api\ResetPasswordController;
 use App\Http\Controllers\Api\QuizController;
+
+use App\Http\Controllers\Api\StatsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -35,21 +39,34 @@ use App\Http\Controllers\Api\QuizController;
 |--------------------------------------------------------------------------
 */
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login',    [AuthController::class, 'login']);
+    Route::post('/register',        [AuthController::class, 'register']);
+    Route::post('/login',           [AuthController::class, 'login']);
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink']);
+    Route::post('/reset-password',  [ResetPasswordController::class, 'reset']);
 });
 
 // Public catalog & content
-Route::get('/categories',        [CourseCategoryController::class, 'index']);
-Route::get('/categories/{courseCategory}', [CourseCategoryController::class, 'show']);
-Route::get('/levels',            [CourseLevelController::class, 'index']);
-Route::get('/levels/{courseLevel}', [CourseLevelController::class, 'show']);
-Route::get('/lesson-types',      [LessonTypeController::class, 'index']);
-Route::get('/courses',           [CourseController::class, 'index']);
-Route::get('/courses/{course}',  [CourseController::class, 'show']);
-Route::get('/courses/{course}/reviews', [ReviewController::class, 'index']);
-Route::get('/lessons/{lesson}',  [LessonController::class, 'show']);
-Route::get('/quizzes/{quiz}',    [QuizController::class, 'show']);
+Route::get('/categories',                   [CourseCategoryController::class, 'index']);
+Route::get('/categories/{courseCategory}',  [CourseCategoryController::class, 'show']);
+Route::get('/levels',                       [CourseLevelController::class, 'index']);
+Route::get('/levels/{courseLevel}',         [CourseLevelController::class, 'show']);
+Route::get('/lesson-types',                 [LessonTypeController::class, 'index']);
+Route::get('/courses',                      [CourseController::class, 'index']);
+Route::get('/courses/{course}',             [CourseController::class, 'show']);
+Route::get('/courses/{course}/reviews',     [ReviewController::class, 'index']);
+Route::get('/courses/{course}/sections',    [CourseSectionController::class, 'byCourse']);
+Route::get('/lessons/{lesson}',             [LessonController::class, 'show']);
+Route::get('/quizzes',                      [QuizController::class, 'index']);
+Route::get('/quizzes/{quiz}',               [QuizController::class, 'show']);
+Route::get('/vocabularies',                 [VocabularyController::class, 'index']);
+Route::get('/grammar-topics',               [GrammarTopicController::class, 'index']);
+Route::get('/listening-lessons',            [ListeningLessonController::class, 'index']);
+Route::get('/stats',                        [StatsController::class, 'public']);
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/stats/student', [StatsController::class, 'student']);
+    Route::get('/stats/teacher', [StatsController::class, 'teacher']);
+});
+Route::get('/quiz-questions/daily',         [QuizQuestionController::class, 'daily']);
 
 /*
 |--------------------------------------------------------------------------
@@ -67,6 +84,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile',                  [ProfileController::class, 'show']);
     Route::put('/profile',                  [ProfileController::class, 'update']);
     Route::post('/profile/change-password', [ProfileController::class, 'changePassword']);
+    Route::post('/profile/upload-avatar',   [ProfileController::class, 'uploadAvatar']);
+    Route::post('/upload-image',            [ProfileController::class, 'uploadImage']);
+    Route::post('/upload-video',            [ProfileController::class, 'uploadVideo']);
+    Route::post('/upload-audio',            [ProfileController::class, 'uploadAudio']);
 
     /*
     |--------------------------------------------------------------------------
@@ -107,6 +128,7 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::middleware('role:admin,teacher')->prefix('teacher')->group(function () {
 
+        Route::get('/my-courses',              [CourseController::class, 'myCourses']);
         Route::apiResource('courses',          CourseController::class)->except(['index', 'show']);
         Route::apiResource('sections',         CourseSectionController::class);
         Route::apiResource('lessons',          LessonController::class)->except(['show']);
@@ -119,9 +141,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('speaking-attempts', SpeakingAttemptController::class);
 
         Route::apiResource('quizzes',        QuizController::class)->except(['show']);
+        Route::post('/quiz-questions/import',       [QuizQuestionController::class, 'import']);
+        Route::post('/quiz-questions/import-docx', [QuizQuestionController::class, 'importDocx']);
+        Route::post('/quiz-questions/parse-docx',  [QuizQuestionController::class, 'parseDocx']);
         Route::apiResource('quiz-questions', QuizQuestionController::class);
         Route::apiResource('quiz-answers',   QuizAnswerController::class);
+
+        // Teacher read-only views of student data
+        Route::get('/enrollments',    [CourseEnrollmentController::class, 'teacherIndex']);
+        Route::get('/lesson-progress',[LessonProgressController::class,   'teacherIndex']);
+        Route::get('/quiz-attempts',  [QuizAttemptController::class,      'teacherIndex']);
     });
+
+    // Quiz submit — any authenticated user can take a quiz
+    Route::post('/quizzes/{quiz}/submit', [QuizAttemptController::class, 'submit']);
+    Route::get('/quiz-attempts',          [QuizAttemptController::class, 'index']);
 
     /*
     |--------------------------------------------------------------------------
@@ -140,7 +174,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/courses/{course}/progress',     [LessonProgressController::class, 'courseProgress']);
 
         // Quiz
-        Route::post('/quizzes/{quiz}/submit', [QuizAttemptController::class, 'submit']);
         Route::get('/quiz-attempts',          [QuizAttemptController::class, 'index']);
         Route::apiResource('user-answers',    UserAnswerController::class);
 
@@ -152,6 +185,13 @@ Route::middleware('auth:sanctum')->group(function () {
         // Notifications
         Route::get('/notifications',                          [NotificationController::class, 'index']);
         Route::post('/notifications/{notification}/read',     [NotificationController::class, 'markAsRead']);
+
+        // Read-only content for student
+        Route::get('/vocabularies',      [VocabularyController::class, 'index']);
+        Route::get('/grammar-topics',    [GrammarTopicController::class, 'index']);
+        Route::get('/listening-lessons', [ListeningLessonController::class, 'index']);
+        Route::get('/quizzes',           [QuizController::class, 'index']);
+        Route::get('/quizzes/{quiz}',    [QuizController::class, 'show']);
     });
 
     /*

@@ -17,6 +17,8 @@ class QuizAttemptResource extends JsonResource
             'started_at'  => $this->started_at?->format('Y-m-d H:i:s'),
             'finished_at' => $this->finished_at?->format('Y-m-d H:i:s'),
             'created_at'  => $this->created_at?->format('Y-m-d H:i:s'),
+            'user'        => new UserResource($this->whenLoaded('user')),
+            'quiz'        => new QuizResource($this->whenLoaded('quiz')),
         ];
     }
 }

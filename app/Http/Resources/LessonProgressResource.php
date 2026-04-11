@@ -15,6 +15,7 @@ class LessonProgressResource extends JsonResource
             'lesson_id'    => $this->lesson_id,
             'status'       => $this->status,
             'completed_at' => $this->completed_at?->format('Y-m-d H:i:s'),
+            'user'         => new UserResource($this->whenLoaded('user')),
             'lesson'       => new LessonResource($this->whenLoaded('lesson')),
         ];
     }

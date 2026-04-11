@@ -1,0 +1,26 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    public function up(): void
+    {
+        Schema::table('quiz_questions', function (Blueprint $table) {
+            $table->string('title')->nullable()->after('question');
+            $table->text('passage')->nullable()->after('title');
+            $table->json('meta')->nullable()->after('passage');
+            $table->unsignedBigInteger('parent_id')->nullable()->after('quiz_id');
+            $table->foreign('parent_id')->references('id')->on('quiz_questions')->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('quiz_questions', function (Blueprint $table) {
+            $table->dropForeign(['parent_id']);
+            $table->dropColumn(['title', 'passage', 'meta', 'parent_id']);
+        });
+    }
+};

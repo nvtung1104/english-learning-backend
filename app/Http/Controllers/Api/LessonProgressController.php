@@ -19,6 +19,20 @@ class LessonProgressController extends Controller
         return LessonProgressResource::collection($items);
     }
 
+    public function teacherIndex(Request $request)
+    {
+        $lessonIds = \App\Models\Lesson::whereHas('section', function ($q) use ($request) {
+            $q->whereHas('course', fn($c) => $c->where('created_by', $request->user()->id));
+        })->pluck('id');
+
+        $items = LessonProgress::with(['user', 'lesson'])
+            ->whereIn('lesson_id', $lessonIds)
+            ->latest()
+            ->get();
+
+        return LessonProgressResource::collection($items);
+    }
+
     public function complete(Request $request, \App\Models\Lesson $lesson)
     {
         $progress = LessonProgress::updateOrCreate(

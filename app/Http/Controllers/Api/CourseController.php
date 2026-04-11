@@ -41,6 +41,25 @@ class CourseController extends Controller
         return CourseResource::collection($items);
     }
 
+    /** Teacher: only their own courses */
+    public function myCourses(Request $request)
+    {
+        $query = Course::with(['category', 'level'])
+            ->where('created_by', auth()->id());
+
+        if ($request->filled('search')) {
+            $query->where('title', 'like', '%' . $request->search . '%');
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $items = $query->orderBy('id', 'desc')->paginate(20);
+
+        return CourseResource::collection($items);
+    }
+
     public function store(StoreCourseRequest $request)
     {
         $data = $request->validated();

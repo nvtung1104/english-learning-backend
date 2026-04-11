@@ -13,7 +13,7 @@ class LessonController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Lesson::query();
+        $query = Lesson::with('lessonType');
 
         if ($request->filled('section_id')) {
             $query->where('section_id', $request->section_id);
@@ -23,7 +23,7 @@ class LessonController extends Controller
             $query->where('lesson_type_id', $request->lesson_type_id);
         }
 
-        $items = $query->orderBy('order_number')->paginate(10);
+        $items = $query->orderBy('order_number')->get();
 
         return LessonResource::collection($items);
     }

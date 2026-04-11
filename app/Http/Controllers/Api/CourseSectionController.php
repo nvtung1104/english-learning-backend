@@ -11,6 +11,16 @@ use App\Http\Requests\CourseSection\UpdateCourseSectionRequest;
 
 class CourseSectionController extends Controller
 {
+    public function byCourse(Request $request, \App\Models\Course $course)
+    {
+        $items = CourseSection::with('lessons')
+            ->where('course_id', $course->id)
+            ->orderBy('order_number')
+            ->get();
+
+        return CourseSectionResource::collection($items);
+    }
+
     public function index(Request $request)
     {
         $query = CourseSection::with('lessons');
